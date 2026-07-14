@@ -1,0 +1,16 @@
+# Segredos e dados sensíveis — NUNCA versionar
+.env
+accounts.csv
+
+# Backups de e-mail (podem conter dados pessoais e são grandes)
+backups/
+*.eml
+*.meta.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.mypy_cache/
+.pytest_cache/
