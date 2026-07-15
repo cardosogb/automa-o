@@ -241,3 +241,65 @@ def _fallback_internaldate(raw: bytes) -> str | None:
         return imaplib.Time2Internaldate(dt.timestamp()).strip('"')
     except Exception:
         return None
+
+
+# ----------------------------------------------------------------------------
+# DIAGNÓSTICO (check)
+# ----------------------------------------------------------------------------
+def check_account(
+    account: Account,
+    settings: Settings,
+    token_provider: TokenProvider,
+) -> bool:
+    """Testa origem (Titan), token OAuth e destino (M365) sem mover e-mails.
+
+    Retorna True se todos os testes passarem.
+    """
+    print(f"\n=== CHECK {account.titan_email} -> {account.target_email} ===")
+    ok = True
+
+    # 1) Login IMAP no Titan (origem)
+    try:
+        src = ImapConnection(settings.titan_host, settings.titan_port)
+        src.login_basic(account.titan_email, account.titan_password)
+        folders = [f for f in src.list_folders() if f.is_selectable]
+        src.logout()
+        print(f"  [OK] Titan: login IMAP e {len(folders)} pasta(s) visível(is)")
+    except Exception as exc:  # noqa: BLE001
+        ok = False
+        print(f"  [FALHA] Titan: {exc}")
+
+    # 2) Token OAuth2 (Azure)
+    token = None
+    try:
+        token = token_provider.get_token()
+        print("  [OK] Azure: token OAuth2 obtido")
+    except Exception as exc:  # noqa: BLE001
+        ok = False
+        print(f"  [FALHA] Azure/OAuth2: {exc}")
+
+    # 3) Login IMAP no M365 (destino) via XOAUTH2
+    if token:
+        try:
+            tgt = ImapConnection(settings.m365_host, settings.m365_port)
+            tgt.login_xoauth2(
+                account.target_email, build_xoauth2(account.target_email, token)
+            )
+            tfolders = tgt.list_folders()
+            tgt.logout()
+            print(
+                f"  [OK] M365: login IMAP (XOAUTH2) e "
+                f"{len(tfolders)} pasta(s) visível(is)"
+            )
+        except Exception as exc:  # noqa: BLE001
+            ok = False
+            print(f"  [FALHA] M365: {exc}")
+            print(
+                "         Dicas: confira a permissão FullAccess do service "
+                "principal na caixa,\n"
+                "         se o IMAP está habilitado (Set-CASMailbox -ImapEnabled "
+                "$true) e o consentimento de admin da IMAP.AccessAsApp."
+            )
+
+    print(f"  => {'TUDO OK' if ok else 'HÁ FALHAS — ver acima'}")
+    return ok

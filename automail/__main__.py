@@ -7,7 +7,7 @@ import sys
 
 from .accounts import load_accounts
 from .config import Settings, load_dotenv
-from .core import backup_account, migrate_account
+from .core import backup_account, check_account, migrate_account
 from .oauth import TokenProvider
 
 
@@ -26,6 +26,9 @@ def _build_parser() -> argparse.ArgumentParser:
     sub.add_parser("backup", help="Só baixa as contas Titan para o disco")
     sub.add_parser("migrate", help="Só sobe backups existentes para o M365")
     sub.add_parser("run", help="Backup e depois migração (fluxo completo)")
+    sub.add_parser(
+        "check", help="Testa login Titan, token OAuth e login M365 (não move e-mails)"
+    )
     return p
 
 
@@ -45,9 +48,10 @@ def main(argv: list[str] | None = None) -> int:
 
     do_backup = args.command in ("backup", "run")
     do_migrate = args.command in ("migrate", "run")
+    do_check = args.command == "check"
 
     token_provider = None
-    if do_migrate:
+    if do_migrate or do_check:
         settings.require_oauth()
         token_provider = TokenProvider(
             settings.azure_tenant_id,
@@ -58,6 +62,10 @@ def main(argv: list[str] | None = None) -> int:
     failures = 0
     for account in accounts:
         try:
+            if do_check and token_provider is not None:
+                if not check_account(account, settings, token_provider):
+                    failures += 1
+                continue
             if do_backup:
                 backup_account(account, settings)
             if do_migrate and token_provider is not None:

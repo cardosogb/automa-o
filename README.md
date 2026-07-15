@@ -85,6 +85,10 @@ Feito por um administrador do tenant Microsoft 365:
 ## Uso
 
 ```bash
+# Diagnóstico: testa login Titan, token OAuth e login M365 (NÃO move e-mails)
+python -m automail check
+python -m automail check --only joao@empresa.com
+
 # Fluxo completo: backup + migração
 python -m automail run
 
