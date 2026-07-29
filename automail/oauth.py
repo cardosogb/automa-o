@@ -15,7 +15,6 @@ Pré-requisitos no Azure/Entra (feitos uma única vez pelo admin):
 
 from __future__ import annotations
 
-import base64
 import json
 import time
 import urllib.error
@@ -69,6 +68,10 @@ class TokenProvider:
 
 
 def build_xoauth2(user: str, access_token: str) -> bytes:
-    """Monta a string de autenticação SASL XOAUTH2 usada pelo IMAP."""
-    raw = f"user={user}\x01auth=Bearer {access_token}\x01\x01"
-    return base64.b64encode(raw.encode("utf-8"))
+    """Monta a string SASL XOAUTH2 (CRUA) usada pelo IMAP.
+
+    Retorna os bytes SEM base64: o imaplib.authenticate() já codifica em
+    base64 o valor devolvido pelo callback. Codificar aqui causaria base64
+    duplicado e o servidor rejeitaria com 'Command Argument Error'.
+    """
+    return f"user={user}\x01auth=Bearer {access_token}\x01\x01".encode("utf-8")
