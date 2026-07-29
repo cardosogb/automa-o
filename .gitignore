@@ -1,6 +1,7 @@
 # Segredos e dados sensíveis — NUNCA versionar
 .env
 accounts.csv
+contas_ok.txt
 
 # Backups de e-mail (podem conter dados pessoais e são grandes)
 backups/
