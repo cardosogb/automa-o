@@ -37,6 +37,15 @@ def main() -> int:
         help="Domínio de destino (Microsoft 365)",
     )
     ap.add_argument(
+        "--excecoes",
+        default="destinos_especiais.txt",
+        help=(
+            "Arquivo opcional com exceções de destino, uma por linha no formato "
+            "'prefixo=email_destino_completo'. Usado quando a caixa do M365 não "
+            "segue o padrão <prefixo>@<destino>."
+        ),
+    )
+    ap.add_argument(
         "--forcar",
         action="store_true",
         help="Sobrescreve o accounts.csv se ele já existir",
@@ -65,6 +74,22 @@ def main() -> int:
         print("Nenhum prefixo válido no arquivo.", file=sys.stderr)
         return 1
 
+    # Exceções de destino: prefixo -> e-mail de destino completo.
+    excecoes: dict[str, str] = {}
+    exc_path = Path(args.excecoes)
+    if exc_path.is_file():
+        for linha in exc_path.read_text(encoding="utf-8").splitlines():
+            linha = linha.strip()
+            if not linha or linha.startswith("#") or "=" not in linha:
+                continue
+            chave, _, valor = linha.partition("=")
+            chave, valor = chave.strip(), valor.strip()
+            if chave and valor:
+                excecoes[chave] = valor
+        if excecoes:
+            print(f"Exceções de destino carregadas: {len(excecoes)} "
+                  f"({', '.join(excecoes)})")
+
     saida = Path(args.saida)
     if saida.exists() and not args.forcar:
         print(
@@ -85,9 +110,8 @@ def main() -> int:
         writer = csv.writer(fh)
         writer.writerow(["titan_email", "titan_password", "target_email"])
         for p in prefixos:
-            writer.writerow(
-                [f"{p}@{args.origem}", senha, f"{p}@{args.destino}"]
-            )
+            destino = excecoes.get(p, f"{p}@{args.destino}")
+            writer.writerow([f"{p}@{args.origem}", senha, destino])
 
     print(f"OK: {saida} gerado com {len(prefixos)} conta(s).")
     if duplicados:

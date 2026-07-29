@@ -1,0 +1,8 @@
+# Exceções de destino — quando a caixa do Microsoft 365 NÃO segue o padrão
+# <prefixo>@fernandomirandaadvocacia.onmicrosoft.com
+#
+# Formato: prefixo_do_titan=email_destino_completo
+# (o "prefixo_do_titan" é a parte antes do @ no e-mail de origem)
+
+# A caixa no M365 tem dois "r" (rrecepcaovilavelha), diferente do prefixo Titan.
+recepcaovilavelha=rrecepcaovilavelha@fernandomirandaadvocacia.onmicrosoft.com
