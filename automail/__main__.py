@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .accounts import load_accounts
 from .config import Settings, load_dotenv
-from .core import backup_account, check_account, migrate_account
+from .core import backup_account, check_account, export_mbox, migrate_account
 from .oauth import TokenProvider
 
 # Arquivo gerado pelo 'check' com os e-mails Titan que passaram em tudo.
@@ -50,6 +50,8 @@ def _build_parser() -> argparse.ArgumentParser:
                    help="Backup e depois migração (fluxo completo)")
     sub.add_parser("check", parents=[common],
                    help="Testa login Titan, token OAuth e login M365 (não move e-mails)")
+    sub.add_parser("mbox", parents=[common],
+                   help="Converte o backup .eml em arquivos .mbox (importáveis)")
     return p
 
 
@@ -89,6 +91,7 @@ def main(argv: list[str] | None = None) -> int:
     do_backup = args.command in ("backup", "run")
     do_migrate = args.command in ("migrate", "run")
     do_check = args.command == "check"
+    do_mbox = args.command == "mbox"
 
     token_provider = None
     if do_migrate or do_check:
@@ -107,6 +110,10 @@ def main(argv: list[str] | None = None) -> int:
                 if check_account(account, settings, token_provider):
                     aprovadas.append(account.titan_email)
                 else:
+                    failures += 1
+                continue
+            if do_mbox:
+                if export_mbox(account, settings) is None:
                     failures += 1
                 continue
             if do_backup:

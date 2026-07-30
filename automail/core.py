@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import email
 import json
+import mailbox
 import re
 import time
 from email.utils import parsedate_to_datetime
@@ -241,6 +242,65 @@ def _fallback_internaldate(raw: bytes) -> str | None:
         return imaplib.Time2Internaldate(dt.timestamp()).strip('"')
     except Exception:
         return None
+
+
+# ----------------------------------------------------------------------------
+# EXPORTAR PARA MBOX (importável em Thunderbird / Outlook)
+# ----------------------------------------------------------------------------
+def export_mbox(account: Account, settings: Settings) -> Path | None:
+    """Converte o backup .eml da conta em arquivos .mbox (um por pasta).
+
+    Saída:
+        backups/<prefixo>/_mbox/<NomeDaPasta>.mbox
+    Cada .mbox pode ser importado direto no Thunderbird (addon ImportExportTools
+    NG) ou copiado para a pasta de perfil do cliente de e-mail.
+    """
+    dest = Path(settings.backup_dir) / account.local_prefix
+    manifest_path = dest / "manifest.json"
+    if not manifest_path.is_file():
+        print(f"  ! sem backup para {account.titan_email}; rode o backup antes.")
+        return None
+
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    out_dir = dest / "_mbox"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    print(f"\n=== EXPORTAR MBOX {account.titan_email} -> {out_dir} ===")
+
+    total = 0
+    for finfo in manifest["folders"]:
+        folder_dir = dest / finfo["dir"]
+        if not folder_dir.is_dir():
+            continue
+        eml_files = sorted(folder_dir.glob("*.eml"))
+        if not eml_files:
+            continue
+
+        mbox_path = out_dir / f"{_safe_component(finfo['name'])}.mbox"
+        # Recria do zero para ser idempotente.
+        if mbox_path.exists():
+            mbox_path.unlink()
+        mb = mailbox.mbox(str(mbox_path))
+        mb.lock()
+        try:
+            for eml_path in eml_files:
+                raw = eml_path.read_bytes()
+                msg = mailbox.mboxMessage(raw)
+                # Preserva flag de lida a partir do .meta.json, se houver.
+                meta_path = eml_path.with_suffix(".meta.json")
+                if meta_path.is_file():
+                    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+                    if "\\Seen" in meta.get("flags", []):
+                        msg.add_flag("R")
+                mb.add(msg)
+            mb.flush()
+        finally:
+            mb.unlock()
+            mb.close()
+        print(f"  • {finfo['name']} -> {mbox_path.name} ({len(eml_files)} msg)")
+        total += len(eml_files)
+
+    print(f"  ✓ {total} mensagem(ns) exportada(s) em {out_dir}")
+    return out_dir
 
 
 # ----------------------------------------------------------------------------
