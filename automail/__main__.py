@@ -15,18 +15,14 @@ from .oauth import TokenProvider
 CONTAS_OK_FILE = "contas_ok.txt"
 
 
-def _build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
-        prog="automail",
-        description="Backup de contas Titan e migração para o Microsoft 365 via IMAP.",
-    )
-    p.add_argument("--env", default=".env", help="Arquivo .env (padrão: .env)")
-    p.add_argument("--csv", help="Caminho do CSV de contas (sobrescreve o .env)")
-    p.add_argument(
+def _add_common_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--env", default=".env", help="Arquivo .env (padrão: .env)")
+    parser.add_argument("--csv", help="Caminho do CSV de contas (sobrescreve o .env)")
+    parser.add_argument(
         "--only",
         help="Processa apenas a conta cujo e-mail Titan corresponde a este valor",
     )
-    p.add_argument(
+    parser.add_argument(
         "--lista",
         help=(
             "Arquivo com e-mails Titan (um por linha); processa só essas contas. "
@@ -34,13 +30,26 @@ def _build_parser() -> argparse.ArgumentParser:
             f"'--lista {CONTAS_OK_FILE}' no run para migrar só as que passaram."
         ),
     )
-    sub = p.add_subparsers(dest="command", required=True)
-    sub.add_parser("backup", help="Só baixa as contas Titan para o disco")
-    sub.add_parser("migrate", help="Só sobe backups existentes para o M365")
-    sub.add_parser("run", help="Backup e depois migração (fluxo completo)")
-    sub.add_parser(
-        "check", help="Testa login Titan, token OAuth e login M365 (não move e-mails)"
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="automail",
+        description="Backup de contas Titan e migração para o Microsoft 365 via IMAP.",
     )
+    # Opções comuns ficam no subcomando: forma intuitiva 'automail backup --only X'.
+    common = argparse.ArgumentParser(add_help=False)
+    _add_common_args(common)
+
+    sub = p.add_subparsers(dest="command", required=True)
+    sub.add_parser("backup", parents=[common],
+                   help="Só baixa as contas Titan para o disco")
+    sub.add_parser("migrate", parents=[common],
+                   help="Só sobe backups existentes para o M365")
+    sub.add_parser("run", parents=[common],
+                   help="Backup e depois migração (fluxo completo)")
+    sub.add_parser("check", parents=[common],
+                   help="Testa login Titan, token OAuth e login M365 (não move e-mails)")
     return p
 
 
